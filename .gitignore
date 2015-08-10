@@ -1,5 +1,7 @@
+.gitignore
 .RData
 .Rhistory
 data.bz2
 project2_cache/
 cache/
+project2_files/

@@ -343,9 +343,9 @@ names(noaa) &lt;- tolower(names(noaa))
     else if(m == &quot;M&quot;) { mexp &lt;- 6 }
     else if(m == &quot;K&quot;) { mexp &lt;- 3 }
     else if(m == &quot;H&quot;) { mexp &lt;- 2 }
-    else if(m == &quot;?&quot;) { mexp &lt;- 1 }
-    else if(is.na(m)) { mexp &lt;- 1 }
-    else { mexp &lt;- 1 }
+    else if(m == &quot;?&quot;) { mexp &lt;- 0 }
+    else if(is.na(m)) { mexp &lt;- 0 }
+    else { mexp &lt;- 0 }
     amount * 10^mexp
 }
 noaa$cropdmgdolar &lt;- mapply(getdollar,noaa$cropdmg, noaa$cropdmgexp)
