@@ -14,24 +14,21 @@ The following libraries are used in this analysis:
 ```r
 library(dplyr, quietly=T, verbose=F, warn.conflicts=F)
 library(ggplot2)
-library(reshape2)
 library(gridExtra)
 ```
 
 
 ### Obtaining and loading the dataset
 
-The dataset is here downloaded from the source and loaded into the *noaa* data frame. Variable names are replaced by lowercase to comply with tidy data practices.
+The dataset is here downloaded from the source and loaded into the *noaa* data frame. Only variables of interest for the analysis are loaded to reduce RAM memory use. Variable names are replaced by lowercase to comply with tidy data practices.
 
 
 ```r
-#getnoaa <- function() { 
-#    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", 
-#                  destfile = "data.bz2", method = "curl")
-#}
-#getnoaa()
+if (!file.exists("data.bz2")) { 
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "data.bz2", method = "curl")
+}
 
-noaa <- read.csv(bzfile("data.bz2"))
+noaa <- read.csv(bzfile("data.bz2"))[, c("EVTYPE","BGN_DATE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
 names(noaa) <- tolower(names(noaa))
 ```
 
@@ -124,6 +121,88 @@ The dataset will be subsetted to include only events recorded from 1996 to 2011,
 noaa <- noaa[noaa$year >= 1996, ]
 ```
 
+### Formating Event Type List
+
+The list of event types contain several event types that do not comply with the official storm data event type classification provided by the dataset's documentation. There are also typos and event names with leading and trailing spaces. In order to address this issue to a satisfactory level, some events were renamed so they could be grouped together.
+
+
+```r
+# initial count of event types after subset to data from year >1996
+length(unique(noaa$evtype))
+```
+
+```
+## [1] 516
+```
+
+```r
+noaa$evtype <- toupper(noaa$evtype)                 #match capitalization
+noaa$evtype <- gsub("  "," ",noaa$evtype)           #remove double spaces
+noaa$evtype <- gsub("/"," ",noaa$evtype)            #replace slashes for spaces 
+noaa$evtype <- sub("^\\s+|\\s+$","",noaa$evtype)    #remove leading and trailing spaces 
+
+# count of event types after subset to data from year >1996 and string manipulation
+length(unique(noaa$evtype))
+```
+
+```
+## [1] 424
+```
+
+Besides the above, a few selected events types were renamed to comply with the documentation's list of official storm events, as follows
+
+
+```
+##  [1] "ASTRONOMICAL LOW TIDE"    "AVALANCHE"               
+##  [3] "BLIZZARD"                 "COASTAL FLOOD"           
+##  [5] "COLD/WIND CHILL"          "DEBRIS FLOW"             
+##  [7] "DENSE FOG"                "DENSE SMOKE"             
+##  [9] "DROUGHT"                  "DUST DEVIL"              
+## [11] "DUST STORM"               "EXCESSIVE HEAT"          
+## [13] "EXTREME COLD/WIND CHILL"  "FLASH FLOOD"             
+## [15] "FLOOD"                    "FROST/FREEZE"            
+## [17] "FUNNEL CLOUD"             "FREEZING FOG"            
+## [19] "HAIL"                     "HEAT"                    
+## [21] "HEAVY RAIN"               "HEAVY SNOW"              
+## [23] "HIGH SURF"                "HIGH WIND"               
+## [25] "HURRICANE (TYPHOON)"      "ICE STORM"               
+## [27] "LAKE-EFFECT SNOW"         "LAKESHORE FLOOD"         
+## [29] "LIGHTNING"                "MARINE HAIL"             
+## [31] "MARINE HIGH WIND"         "MARINE STRONG WIND"      
+## [33] "MARINE THUNDERSTORM WIND" "RIP CURRENT"             
+## [35] "SEICHE"                   "SLEET"                   
+## [37] "STORM SURGE/TIDE"         "STRONG WIND"             
+## [39] "THUNDERSTORM WIND"        "TORNADO"                 
+## [41] "TROPICAL DEPRESSION"      "TROPICAL STORM"          
+## [43] "TSUNAMI"                  "VOLCANIC ASH"            
+## [45] "WATERSPOUT"               "WILDFIRE"                
+## [47] "WINTER STORM"             "WINTER WEATHER"
+```
+
+For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task.
+
+
+```r
+noaa$evtype <- sub("THUNDERSTORM WIND","TSTM WIND",noaa$evtype)
+noaa$evtype <- sub("WILD FOREST FIRE","WILDFIRE",noaa$evtype)
+noaa$evtype <- sub("STRONG WINDS","STRONG WIND",noaa$evtype)
+noaa$evtype <- sub("RIP CURRENTS","RIP CURRENT",noaa$evtype)
+noaa$evtype <- sub("MARINE TSTM WIND","MARINE THUNDERSTORM WIND",noaa$evtype)
+noaa$evtype <- sub("WINTER WEATHER MIX","WINTER WEATHER",noaa$evtype)
+noaa$evtype <- sub("COASTAL FLOODING","COASTAL FLOOD",noaa$evtype)
+noaa$evtype <- sub("HURRICANE","HURRICANE/TYPHOON",noaa$evtype) 
+noaa$evtype <- sub("HURRICANE/TYPHOON TYPHOON","HURRICANE/TYPHOON",noaa$evtype) 
+noaa$evtype <- sub("URBAN SML STREAM FLD","FLOOD",noaa$evtype)
+noaa$evtype <- sub("LANDSLIDE","AVALANCHE",noaa$evtype) # (leaves 413)
+
+# count of event types after subset to data from year >1996, string manipulation and matching selected names/categories
+length(unique(noaa$evtype))
+```
+
+```
+## [1] 413
+```
+
 
 ### Obtaining variables of interest via getevents() function
 
@@ -192,22 +271,22 @@ select(getevents(fatalities),evtype,fatalities)[1:20,]
 ## 2                  TORNADO       1511
 ## 3              FLASH FLOOD        887
 ## 4                LIGHTNING        651
-## 5                    FLOOD        414
-## 6              RIP CURRENT        340
-## 7                TSTM WIND        241
-## 8                     HEAT        237
-## 9                HIGH WIND        235
-## 10               AVALANCHE        223
-## 11            RIP CURRENTS        202
-## 12            WINTER STORM        191
-## 13       THUNDERSTORM WIND        130
-## 14 EXTREME COLD/WIND CHILL        125
-## 15            EXTREME COLD        113
+## 5              RIP CURRENT        542
+## 6                    FLOOD        442
+## 7                TSTM WIND        371
+## 8                AVALANCHE        260
+## 9                     HEAT        237
+## 10               HIGH WIND        235
+## 11            WINTER STORM        191
+## 12 EXTREME COLD WIND CHILL        125
+## 13       HURRICANE/TYPHOON        125
+## 14            EXTREME COLD        115
+## 15             STRONG WIND        110
 ## 16              HEAVY SNOW        107
-## 17             STRONG WIND        103
-## 18         COLD/WIND CHILL         95
-## 19              HEAVY RAIN         94
-## 20               HIGH SURF         87
+## 17         COLD WIND CHILL         95
+## 18              HEAVY RAIN         94
+## 19               HIGH SURF         90
+## 20                WILDFIRE         87
 ```
 
 
@@ -218,37 +297,37 @@ select(getevents(injuries),evtype,injuries)[1:20,]
 ```
 ##               evtype injuries
 ## 1            TORNADO    20667
-## 2              FLOOD     6758
+## 2              FLOOD     6837
 ## 3     EXCESSIVE HEAT     6391
-## 4          LIGHTNING     4141
-## 5          TSTM WIND     3629
+## 4          TSTM WIND     5029
+## 5          LIGHTNING     4141
 ## 6        FLASH FLOOD     1674
-## 7  THUNDERSTORM WIND     1400
-## 8       WINTER STORM     1292
-## 9  HURRICANE/TYPHOON     1275
+## 7           WILDFIRE     1456
+## 8  HURRICANE/TYPHOON     1321
+## 9       WINTER STORM     1292
 ## 10              HEAT     1222
 ## 11         HIGH WIND     1083
-## 12          WILDFIRE      911
-## 13              HAIL      713
-## 14               FOG      712
-## 15        HEAVY SNOW      698
-## 16  WILD/FOREST FIRE      545
+## 12              HAIL      713
+## 13               FOG      712
+## 14        HEAVY SNOW      698
+## 15       RIP CURRENT      503
+## 16    WINTER WEATHER      483
 ## 17          BLIZZARD      385
 ## 18        DUST STORM      376
-## 19    WINTER WEATHER      343
-## 20    TROPICAL STORM      338
+## 19    TROPICAL STORM      338
+## 20         ICE STORM      318
 ```
 
 
 ```r
 plotfat <- ggplot(getevents(fatalities,arrangeby="value")[1:20,], aes(x=reorder(evtype,fatalities), y=fatalities)) +
     geom_bar(stat="identity", fill="tomato", alpha=.8) +
-    coord_flip() + theme(legend.position="none") +
+    coord_flip() + theme(legend.position="none", axis.text.x = element_text(angle = 90, hjust = 1)) +
     labs(y = "Number of Fatalities", x = "Event Type")
 
 plotinj <- ggplot(getevents(injuries,arrangeby="value")[1:20,], aes(x=reorder(evtype,injuries), y=injuries)) +
     geom_bar(stat="identity", fill="steelblue2", alpha=.8) +
-    coord_flip() + theme(legend.position="none") +
+    coord_flip() + theme(legend.position="none", axis.text.x = element_text(angle = 90, hjust = 1)) +
     labs(y = "Number of Injuries", x = "")
 
 grid.arrange(plotfat, plotinj, ncol = 2, top="Natural Event's Effect on Human Population Health in the U.S. between 1996 and 2011")
@@ -268,13 +347,10 @@ ratefat
 ##              evtype    evrate
 ## 1           TSUNAMI 1.6500000
 ## 2    EXCESSIVE HEAT 1.0851449
-## 3       RIP CURRENT 0.7870370
-## 4 HURRICANE/TYPHOON 0.7272727
-## 5      RIP CURRENTS 0.6688742
-## 6         AVALANCHE 0.5899471
-## 7              COLD 0.4411765
-## 8         HURRICANE 0.3588235
-## 9              HEAT 0.3310056
+## 3       RIP CURRENT 0.7384196
+## 4 HURRICANE/TYPHOON 0.4844961
+## 5              COLD 0.4090909
+## 6              HEAT 0.3310056
 ```
 
 
@@ -284,21 +360,20 @@ rateinj
 ```
 
 ```
-##               evtype     evrate
-## 1  HURRICANE/TYPHOON 14.4886364
-## 2              GLAZE 10.0952381
-## 3            TSUNAMI  6.4500000
-## 4     EXCESSIVE HEAT  3.8592995
-## 5          BLACK ICE  1.7142857
-## 6               HEAT  1.7067039
-## 7                FOG  1.3383459
-## 8       RIP CURRENTS  0.9735099
-## 9         WINTRY MIX  0.9390244
-## 10  FREEZING DRIZZLE  0.9285714
-## 11         ICY ROADS  0.9166667
-## 12        DUST STORM  0.9016787
-## 13           TORNADO  0.8925888
-## 14        HEAVY SURF  0.5194805
+##               evtype    evrate
+## 1              GLAZE 6.6250000
+## 2            TSUNAMI 6.4500000
+## 3  HURRICANE/TYPHOON 5.1201550
+## 4     EXCESSIVE HEAT 3.8592995
+## 5               HEAT 1.7067039
+## 6          BLACK ICE 1.4117647
+## 7                FOG 1.3383459
+## 8         DUST STORM 0.9016787
+## 9         WINTRY MIX 0.8953488
+## 10           TORNADO 0.8925888
+## 11         ICY ROADS 0.7857143
+## 12  FREEZING DRIZZLE 0.7222222
+## 13       RIP CURRENT 0.6852861
 ```
 
 
@@ -332,26 +407,26 @@ select(getevents(propdmgdolar),evtype,propdmgdolar)[1:20,]
 
 ```
 ##               evtype propdmgdolar
-## 1              FLOOD 143944833550
-## 2  HURRICANE/TYPHOON  69305840000
+## 1              FLOOD 144003143200
+## 2  HURRICANE/TYPHOON  81118659010
 ## 3        STORM SURGE  43193536000
 ## 4            TORNADO  24616945710
-## 5        FLASH FLOOD  15222203910
+## 5        FLASH FLOOD  15222253910
 ## 6               HAIL  14595143420
-## 7          HURRICANE  11812819010
-## 8     TROPICAL STORM   7642475550
-## 9          HIGH WIND   5247860360
-## 10          WILDFIRE   4758667000
-## 11  STORM SURGE/TIDE   4641188000
-## 12         TSTM WIND   4478026440
-## 13         ICE STORM   3642248810
-## 14 THUNDERSTORM WIND   3382654440
-## 15  WILD/FOREST FIRE   3001782500
-## 16      WINTER STORM   1532743250
-## 17           DROUGHT   1046101000
-## 18         LIGHTNING    743077080
-## 19        HEAVY SNOW    634417540
-## 20           TYPHOON    600230000
+## 7          TSTM WIND   7868810880
+## 8           WILDFIRE   7760449500
+## 9     TROPICAL STORM   7642475550
+## 10         HIGH WIND   5247860360
+## 11  STORM SURGE TIDE   4641188000
+## 12         ICE STORM   3642248810
+## 13      WINTER STORM   1532743250
+## 14           DROUGHT   1046101000
+## 15         LIGHTNING    743077080
+## 16        HEAVY SNOW    634417540
+## 17           TYPHOON    600230000
+## 18        HEAVY RAIN    584864440
+## 19          BLIZZARD    525658950
+## 20     COASTAL FLOOD    355209560
 ```
 
 
@@ -362,25 +437,25 @@ select(getevents(cropdmgdolar),evtype,cropdmgdolar)[1:20,]
 ```
 ##               evtype cropdmgdolar
 ## 1            DROUGHT  13367566000
-## 2              FLOOD   4974778400
-## 3          HURRICANE   2741410000
-## 4  HURRICANE/TYPHOON   2607872800
-## 5               HAIL   2476029450
-## 6        FLASH FLOOD   1334901700
-## 7       EXTREME COLD   1288973000
-## 8       FROST/FREEZE   1094086000
+## 2  HURRICANE/TYPHOON   5349282800
+## 3              FLOOD   4983266500
+## 4               HAIL   2476029450
+## 5        FLASH FLOOD   1334901700
+## 6       EXTREME COLD   1308973000
+## 7       FROST FREEZE   1094186000
+## 8          TSTM WIND    952246350
 ## 9         HEAVY RAIN    728169800
 ## 10    TROPICAL STORM    677711000
 ## 11         HIGH WIND    633561300
-## 12         TSTM WIND    553915350
-## 13    EXCESSIVE HEAT    492402000
-## 14 THUNDERSTORM WIND    398331000
-## 15          WILDFIRE    295472800
-## 16           TORNADO    283425010
-## 17            FREEZE    146225000
-## 18  WILD/FOREST FIRE    106782330
-## 19        HEAVY SNOW     71122100
-## 20       STRONG WIND     64953500
+## 12    EXCESSIVE HEAT    492402000
+## 13          WILDFIRE    402255130
+## 14           TORNADO    283425010
+## 15            FREEZE    156725000
+## 16        HEAVY SNOW     71122100
+## 17       STRONG WIND     64953500
+## 18    TSTM WIND HAIL     64696250
+## 19       EARLY FROST     42000000
+## 20   DAMAGING FREEZE     34130000
 ```
 
 Economic impact:

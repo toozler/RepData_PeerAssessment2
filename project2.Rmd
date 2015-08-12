@@ -13,23 +13,20 @@ The following libraries are used in this analysis:
 ```{r lib}
 library(dplyr, quietly=T, verbose=F, warn.conflicts=F)
 library(ggplot2)
-library(reshape2)
 library(gridExtra)
 ```
 
 
 ### Obtaining and loading the dataset
 
-The dataset is here downloaded from the source and loaded into the *noaa* data frame. Variable names are replaced by lowercase to comply with tidy data practices.
+The dataset is here downloaded from the source and loaded into the *noaa* data frame. Only variables of interest for the analysis are loaded to reduce RAM memory use. Variable names are replaced by lowercase to comply with tidy data practices.
 
 ```{r dl, cache=TRUE}
-#getnoaa <- function() { 
-#    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", 
-#                  destfile = "data.bz2", method = "curl")
-#}
-#getnoaa()
+if (!file.exists("data.bz2")) { 
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "data.bz2", method = "curl")
+}
 
-noaa <- read.csv(bzfile("data.bz2"))
+noaa <- read.csv(bzfile("data.bz2"))[, c("EVTYPE","BGN_DATE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")]
 names(noaa) <- tolower(names(noaa))
 ```
 
@@ -58,6 +55,48 @@ The dataset will be subsetted to include only events recorded from 1996 to 2011,
 
 ```{r subset4, cache=TRUE}
 noaa <- noaa[noaa$year >= 1996, ]
+```
+
+### Formating Event Type List
+
+The list of event types contain several event types that do not comply with the official storm data event type classification provided by the dataset's documentation. There are also typos and event names with leading and trailing spaces. In order to address this issue to a satisfactory level, some events were renamed so they could be grouped together.
+
+```{r eventnames}
+# initial count of event types after subset to data from year >1996
+length(unique(noaa$evtype))
+
+noaa$evtype <- toupper(noaa$evtype)                 #match capitalization
+noaa$evtype <- gsub("  "," ",noaa$evtype)           #remove double spaces
+noaa$evtype <- gsub("/"," ",noaa$evtype)            #replace slashes for spaces 
+noaa$evtype <- sub("^\\s+|\\s+$","",noaa$evtype)    #remove leading and trailing spaces 
+
+# count of event types after subset to data from year >1996 and string manipulation
+length(unique(noaa$evtype))
+```
+
+Besides the above, a few selected events types were renamed to comply with the documentation's list of official storm events, as follows
+
+```{r eventlist, echo=FALSE}
+toupper(c("Astronomical Low Tide","Avalanche","Blizzard","Coastal Flood","Cold/Wind Chill","Debris Flow","Dense Fog","Dense Smoke","Drought","Dust Devil","Dust Storm","Excessive Heat","Extreme Cold/Wind Chill","Flash Flood","Flood","Frost/Freeze","Funnel Cloud","Freezing Fog","Hail","Heat","Heavy Rain","Heavy Snow","High Surf","High Wind","Hurricane (Typhoon)","Ice Storm","Lake-Effect Snow","Lakeshore Flood","Lightning","Marine Hail","Marine High Wind","Marine Strong Wind","Marine Thunderstorm Wind","Rip Current","Seiche","Sleet","Storm Surge/Tide","Strong Wind","Thunderstorm Wind","Tornado","Tropical Depression","Tropical Storm","Tsunami","Volcanic Ash","Waterspout","Wildfire","Winter Storm","Winter Weather"))
+```
+
+For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task.
+
+```{r eventfix}
+noaa$evtype <- sub("THUNDERSTORM WIND","TSTM WIND",noaa$evtype)
+noaa$evtype <- sub("WILD FOREST FIRE","WILDFIRE",noaa$evtype)
+noaa$evtype <- sub("STRONG WINDS","STRONG WIND",noaa$evtype)
+noaa$evtype <- sub("RIP CURRENTS","RIP CURRENT",noaa$evtype)
+noaa$evtype <- sub("MARINE TSTM WIND","MARINE THUNDERSTORM WIND",noaa$evtype)
+noaa$evtype <- sub("WINTER WEATHER MIX","WINTER WEATHER",noaa$evtype)
+noaa$evtype <- sub("COASTAL FLOODING","COASTAL FLOOD",noaa$evtype)
+noaa$evtype <- sub("HURRICANE","HURRICANE/TYPHOON",noaa$evtype) 
+noaa$evtype <- sub("HURRICANE/TYPHOON TYPHOON","HURRICANE/TYPHOON",noaa$evtype) 
+noaa$evtype <- sub("URBAN SML STREAM FLD","FLOOD",noaa$evtype)
+noaa$evtype <- sub("LANDSLIDE","AVALANCHE",noaa$evtype) # (leaves 413)
+
+# count of event types after subset to data from year >1996, string manipulation and matching selected names/categories
+length(unique(noaa$evtype))
 ```
 
 
@@ -126,12 +165,12 @@ select(getevents(injuries),evtype,injuries)[1:20,]
 ```{r plot1}
 plotfat <- ggplot(getevents(fatalities,arrangeby="value")[1:20,], aes(x=reorder(evtype,fatalities), y=fatalities)) +
     geom_bar(stat="identity", fill="tomato", alpha=.8) +
-    coord_flip() + theme(legend.position="none") +
+    coord_flip() + theme(legend.position="none", axis.text.x = element_text(angle = 90, hjust = 1)) +
     labs(y = "Number of Fatalities", x = "Event Type")
 
 plotinj <- ggplot(getevents(injuries,arrangeby="value")[1:20,], aes(x=reorder(evtype,injuries), y=injuries)) +
     geom_bar(stat="identity", fill="steelblue2", alpha=.8) +
-    coord_flip() + theme(legend.position="none") +
+    coord_flip() + theme(legend.position="none", axis.text.x = element_text(angle = 90, hjust = 1)) +
     labs(y = "Number of Injuries", x = "")
 
 grid.arrange(plotfat, plotinj, ncol = 2, top="Natural Event's Effect on Human Population Health in the U.S. between 1996 and 2011")
