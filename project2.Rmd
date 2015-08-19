@@ -74,13 +74,13 @@ noaa$evtype <- sub("^\\s+|\\s+$","",noaa$evtype)    #remove leading and trailing
 length(unique(noaa$evtype))
 ```
 
-Besides the above, a few selected events types were renamed to comply with the documentation's list of official storm events, as follows
+The dataset's documentation provides a list of official storm events (listed below):
 
 ```{r eventlist, echo=FALSE}
 toupper(c("Astronomical Low Tide","Avalanche","Blizzard","Coastal Flood","Cold/Wind Chill","Debris Flow","Dense Fog","Dense Smoke","Drought","Dust Devil","Dust Storm","Excessive Heat","Extreme Cold/Wind Chill","Flash Flood","Flood","Frost/Freeze","Funnel Cloud","Freezing Fog","Hail","Heat","Heavy Rain","Heavy Snow","High Surf","High Wind","Hurricane (Typhoon)","Ice Storm","Lake-Effect Snow","Lakeshore Flood","Lightning","Marine Hail","Marine High Wind","Marine Strong Wind","Marine Thunderstorm Wind","Rip Current","Seiche","Sleet","Storm Surge/Tide","Strong Wind","Thunderstorm Wind","Tornado","Tropical Depression","Tropical Storm","Tsunami","Volcanic Ash","Waterspout","Wildfire","Winter Storm","Winter Weather"))
 ```
 
-For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task.
+The dataset contains several EVTYPEs that do not match the documentation's list of event tyes. For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task and only the following were performed:
 
 ```{r eventfix}
 noaa$evtype <- sub("THUNDERSTORM WIND","TSTM WIND",noaa$evtype)
@@ -97,6 +97,14 @@ noaa$evtype <- sub("LANDSLIDE","AVALANCHE",noaa$evtype) # (leaves 413)
 
 # count of event types after subset to data from year >1996, string manipulation and matching selected names/categories
 length(unique(noaa$evtype))
+```
+
+Besides the above, from the remaining `r length(unique(noaa$evtype))` event types, it's relevant to mention that `r nothing <- filter(noaa, fatalities == 0 & injuries == 0 & cropdmg == 0 & propdmg == 0); length(unique(nothing$evtype))` list zero injuries, fatalities, crop damage and property damage. Removing or not those event types will not influence the result of this analysis.
+
+```{r nothing}
+nothing <- filter(noaa, fatalities == 0 & injuries == 0 & cropdmg == 0 & propdmg == 0)
+length(unique(nothing$evtype))  # number of unique events types without any reported variables of interest
+                                  
 ```
 
 
@@ -180,12 +188,16 @@ grid.arrange(plotfat, plotinj, ncol = 2, top="Natural Event's Effect on Human Po
 Alternatively, one may evaluate the harmfulness of an event type by the rate of fatalities or injuries it may cause. Here are the top ranking harmful event types ranked by the rate of fatalities and injuries they have caused, limited to events with at least 10 occurences and with a average rate of at least 0.3 for fatalities and 0.5 injuries per event record.
 
 ```{r result2a}
-ratefat <- filter(getevents(fatalities,arrangeby="evrate"), evcount > 10) %>% select(evtype,evrate) %>% filter(evrate > 0.3)
+ratefat <- filter(getevents(fatalities,arrangeby="evrate"), evcount > 10) %>% 
+    select(evtype,evrate) %>% 
+    filter(evrate > 0.3)
 ratefat
 ```
 
 ```{r result2b}
-rateinj <- filter(getevents(injuries,arrangeby="evrate"), evcount > 10) %>% select(evtype,evrate) %>% filter(evrate > 0.5)
+rateinj <- filter(getevents(injuries,arrangeby="evrate"), evcount > 10) %>% 
+    select(evtype,evrate) %>% 
+    filter(evrate > 0.5)
 rateinj
 ```
 
@@ -219,8 +231,6 @@ select(getevents(propdmgdolar),evtype,propdmgdolar)[1:20,]
 select(getevents(cropdmgdolar),evtype,cropdmgdolar)[1:20,]
 ```
 
-Economic impact:
-
 ```{r plot3}
 plotprop <- ggplot(getevents(propdmgdolar,arrangeby="value")[1:20,], aes(x=reorder(evtype,propdmgdolar), y=propdmgdolar)) +
     geom_bar(stat="identity", fill="slategray3", alpha=.8) +
@@ -236,3 +246,4 @@ grid.arrange(plotprop, plotcrop, ncol = 2, top="Natural Event's Economical Impac
 
 ```
 
+Floods and hurricanes/typhoons are responsible for the largest economical impact on properties. Droughts and hurricane/typhoons are responsible for the largest economical impact on crops.

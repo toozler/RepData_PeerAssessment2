@@ -149,7 +149,7 @@ length(unique(noaa$evtype))
 ## [1] 424
 ```
 
-Besides the above, a few selected events types were renamed to comply with the documentation's list of official storm events, as follows
+The dataset's documentation provides a list of official storm events (listed below):
 
 
 ```
@@ -179,7 +179,7 @@ Besides the above, a few selected events types were renamed to comply with the d
 ## [47] "WINTER STORM"             "WINTER WEATHER"
 ```
 
-For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task.
+The dataset contains several EVTYPEs that do not match the documentation's list of event tyes. For the purpose of this analysis, a few selected event types were corrected. Further corrections can be made to the dataset, however, understanding and grouping event types under each event category would be an extensive task and only the following were performed:
 
 
 ```r
@@ -201,6 +201,18 @@ length(unique(noaa$evtype))
 
 ```
 ## [1] 413
+```
+
+Besides the above, from the remaining 413 event types, it's relevant to mention that 359 list zero injuries, fatalities, crop damage and property damage. Removing or not those event types will not influence the result of this analysis.
+
+
+```r
+nothing <- filter(noaa, fatalities == 0 & injuries == 0 & cropdmg == 0 & propdmg == 0)
+length(unique(nothing$evtype))  # number of unique events types without any reported variables of interest
+```
+
+```
+## [1] 359
 ```
 
 
@@ -339,7 +351,9 @@ Alternatively, one may evaluate the harmfulness of an event type by the rate of 
 
 
 ```r
-ratefat <- filter(getevents(fatalities,arrangeby="evrate"), evcount > 10) %>% select(evtype,evrate) %>% filter(evrate > 0.3)
+ratefat <- filter(getevents(fatalities,arrangeby="evrate"), evcount > 10) %>% 
+    select(evtype,evrate) %>% 
+    filter(evrate > 0.3)
 ratefat
 ```
 
@@ -355,7 +369,9 @@ ratefat
 
 
 ```r
-rateinj <- filter(getevents(injuries,arrangeby="evrate"), evcount > 10) %>% select(evtype,evrate) %>% filter(evrate > 0.5)
+rateinj <- filter(getevents(injuries,arrangeby="evrate"), evcount > 10) %>% 
+    select(evtype,evrate) %>% 
+    filter(evrate > 0.5)
 rateinj
 ```
 
@@ -458,8 +474,6 @@ select(getevents(cropdmgdolar),evtype,cropdmgdolar)[1:20,]
 ## 20   DAMAGING FREEZE     34130000
 ```
 
-Economic impact:
-
 
 ```r
 plotprop <- ggplot(getevents(propdmgdolar,arrangeby="value")[1:20,], aes(x=reorder(evtype,propdmgdolar), y=propdmgdolar)) +
@@ -477,3 +491,4 @@ grid.arrange(plotprop, plotcrop, ncol = 2, top="Natural Event's Economical Impac
 
 ![plot of chunk plot3](figure/plot3-1.png) 
 
+Floods and hurricanes/typhoons are responsible for the largest economical impact on properties. Droughts and hurricane/typhoons are responsible for the largest economical impact on crops.
